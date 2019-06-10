@@ -72,8 +72,8 @@ try {
     print(responseJSON);
 
 } catch (e) {
-    print(e);
     log.error(e.message);
+    response.sendRedirect("/portal/error_pages/error.jag");
 }
 
 function loadResidentIDPInformation(tenantDomain, purposes) {
@@ -108,6 +108,11 @@ function loadDefaultReceiptInformation(receipt) {
 
 function populatePurposes(purposeForReceipt, acceptedPurposes){
     var purposeReceiptData = purposeForReceipt.data;
+
+    //remove group, groupType attributes from receipt request 
+    delete purposeReceiptData["group"];
+    delete purposeReceiptData["groupType"];
+
     if (!purposeReceiptData || !purposeReceiptData.piiCategories || purposeReceiptData.piiCategories.length < 1) {
         return null;
     }

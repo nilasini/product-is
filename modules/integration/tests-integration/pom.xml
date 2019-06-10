@@ -19,7 +19,7 @@
     <parent>
         <groupId>org.wso2.is</groupId>
         <artifactId>identity-integration-tests</artifactId>
-        <version>5.7.0-m3-SNAPSHOT</version>
+        <version>5.8.1-m3-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -41,6 +41,16 @@
         <dependency>
             <groupId>org.wso2.carbon.automation</groupId>
             <artifactId>org.wso2.carbon.automation.extensions</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.saucelabs.selenium</groupId> <!-- Exclude Project-E from Project-B -->
+                    <artifactId>sauce-ondemand-driver</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.saucelabs.selenium</groupId> <!-- Exclude Project-E from Project-B -->
+                    <artifactId>selenium-client-factory</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.wso2.carbon.automation</groupId>
@@ -82,6 +92,14 @@
             <artifactId>org.wso2.carbon.identity.application.common</artifactId>
         </dependency>
         <dependency>
+            <groupId>org.wso2.carbon.identity.framework</groupId>
+            <artifactId>org.wso2.carbon.identity.application.mgt</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.wso2.carbon.identity.framework</groupId>
+            <artifactId>org.wso2.carbon.identity.functions.library.mgt</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.wso2.carbon.identity.inbound.provisioning.scim</groupId>
             <artifactId>org.wso2.carbon.identity.scim.common.stub</artifactId>
             <scope>test</scope>
@@ -100,6 +118,10 @@
             <groupId>org.wso2.carbon.identity.user.ws</groupId>
             <artifactId>org.wso2.carbon.um.ws.api</artifactId>
             <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.wso2.carbon.identity.framework</groupId>
+            <artifactId>org.wso2.carbon.identity.template.mgt</artifactId>
         </dependency>
     </dependencies>
 </project>

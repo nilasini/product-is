@@ -48,6 +48,7 @@ import org.wso2.carbon.identity.application.common.model.xsd.ServiceProvider;
 import org.wso2.carbon.identity.sso.saml.stub.types.SAMLSSOServiceProviderDTO;
 import org.wso2.identity.integration.common.clients.UserManagementClient;
 import org.wso2.carbon.user.mgt.stub.UserAdminUserAdminException;
+import org.wso2.identity.integration.common.utils.ISIntegrationTest;
 import org.wso2.identity.integration.test.application.mgt.AbstractIdentityFederationTestCase;
 import org.wso2.identity.integration.test.util.Utils;
 import org.wso2.identity.integration.test.utils.CommonConstants;
@@ -108,15 +109,6 @@ public class SAMLIdentityFederationTestCase extends AbstractIdentityFederationTe
 
         startCarbonServer(PORT_OFFSET_1, context, startupParameters);
 
-//TODO: Need to fix tomcat issue
-        super.startTomcat(TOMCAT_8490);
-//        super.addWebAppToTomcat(TOMCAT_8490, "/travelocity.com", getClass().getResource(File.separator + "samples" +
-//                                                                                        File.separator + "org.wso2.sample.is.sso.agent.war").getPath());
-
-        URL resourceUrl = getClass().getResource(File.separator + "samples" + File.separator + "travelocity.com.war");
-        super.addWebAppToTomcat(TOMCAT_8490, "/travelocity.com", resourceUrl.getPath());
-
-
         super.createServiceClients(PORT_OFFSET_0, sessionCookie, new IdentityConstants
                 .ServiceClientType[]{IdentityConstants.ServiceClientType.APPLICATION_MANAGEMENT, IdentityConstants.ServiceClientType.IDENTITY_PROVIDER_MGT, IdentityConstants.ServiceClientType.SAML_SSO_CONFIG});
         super.createServiceClients(PORT_OFFSET_1, null, new IdentityConstants.ServiceClientType[]{IdentityConstants.ServiceClientType.APPLICATION_MANAGEMENT, IdentityConstants.ServiceClientType.SAML_SSO_CONFIG});
@@ -139,10 +131,6 @@ public class SAMLIdentityFederationTestCase extends AbstractIdentityFederationTe
         deleteAddedUsers();
 
         super.stopCarbonServer(PORT_OFFSET_1);
-        super.stopTomcat(TOMCAT_8490);
-
-        super.stopHttpClient();
-
     }
 
     @Test(priority = 1, groups = "wso2.is", description = "Check create identity provider in primary IS")
@@ -182,6 +170,10 @@ public class SAMLIdentityFederationTestCase extends AbstractIdentityFederationTe
         AuthenticationStep authStep = new AuthenticationStep();
         org.wso2.carbon.identity.application.common.model.xsd.IdentityProvider idP = new org.wso2.carbon.identity.application.common.model.xsd.IdentityProvider();
         idP.setIdentityProviderName(IDENTITY_PROVIDER_NAME);
+        org.wso2.carbon.identity.application.common.model.xsd.FederatedAuthenticatorConfig saml2SSOAuthnConfig = new org.wso2.carbon.identity.application.common.model.xsd.FederatedAuthenticatorConfig();
+        saml2SSOAuthnConfig.setName("SAMLSSOAuthenticator");
+        saml2SSOAuthnConfig.setDisplayName("samlsso");
+        idP.setFederatedAuthenticatorConfigs(new org.wso2.carbon.identity.application.common.model.xsd.FederatedAuthenticatorConfig[]{saml2SSOAuthnConfig});
         authStep.setFederatedIdentityProviders(new org.wso2.carbon.identity.application.common.model.xsd.IdentityProvider[]{idP});
         serviceProvider.getLocalAndOutBoundAuthenticationConfig().setAuthenticationSteps(new AuthenticationStep[]{authStep});
         serviceProvider.getLocalAndOutBoundAuthenticationConfig().setAuthenticationType(AUTHENTICATION_TYPE);

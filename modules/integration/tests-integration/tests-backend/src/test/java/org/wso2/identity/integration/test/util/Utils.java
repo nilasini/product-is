@@ -1,28 +1,31 @@
 /*
-*Copyright (c) 2005-2010, WSO2 Inc. (http://www.wso2.org) All Rights Reserved.
-*
-*WSO2 Inc. licenses this file to you under the Apache License,
-*Version 2.0 (the "License"); you may not use this file except
-*in compliance with the License.
-*You may obtain a copy of the License at
-*
-*http://www.apache.org/licenses/LICENSE-2.0
-*
-*Unless required by applicable law or agreed to in writing,
-*software distributed under the License is distributed on an
-*"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-*KIND, either express or implied.  See the License for the
-*specific language governing permissions and limitations
-*under the License.
-*/
+ *Copyright (c) 2005-2010, WSO2 Inc. (http://www.wso2.org) All Rights Reserved.
+ *
+ *WSO2 Inc. licenses this file to you under the Apache License,
+ *Version 2.0 (the "License"); you may not use this file except
+ *in compliance with the License.
+ *You may obtain a copy of the License at
+ *
+ *http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *Unless required by applicable law or agreed to in writing,
+ *software distributed under the License is distributed on an
+ *"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ *KIND, either express or implied.  See the License for the
+ *specific language governing permissions and limitations
+ *under the License.
+ */
 
 package org.wso2.identity.integration.test.util;
 
-import org.apache.catalina.LifecycleException;
 import org.apache.catalina.core.StandardHost;
 import org.apache.catalina.startup.Tomcat;
+import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang.StringUtils;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.http.Header;
+import org.apache.http.HttpHeaders;
 import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.HttpClient;
@@ -30,20 +33,24 @@ import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.utils.URLEncodedUtils;
+import org.apache.http.entity.StringEntity;
 import org.apache.http.message.BasicNameValuePair;
 import org.wso2.carbon.automation.engine.context.TestUserMode;
+import org.wso2.carbon.automation.engine.frameworkutils.FrameworkPathUtil;
+import org.wso2.carbon.h2.osgi.utils.CarbonUtils;
 import org.wso2.carbon.user.core.UserCoreConstants;
-import org.wso2.carbon.user.core.util.UserCoreUtil;
 import org.wso2.carbon.user.mgt.stub.types.carbon.FlaggedName;
+import org.wso2.identity.integration.common.utils.ISIntegrationTest;
 import org.wso2.identity.integration.test.provisioning.JustInTimeProvisioningTestCase;
 import org.wso2.identity.integration.test.utils.CommonConstants;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URI;
-import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -58,8 +65,14 @@ public class Utils {
     private static final String SAML_SSO_URL = "https://localhost:9853/samlsso";
     public static final String MODIFIED_USER_NAME = "modifiedUserName";
     public static final String PASSWORD = "password";
+    public static final String USER_AGENT = "User-Agent";
+    public static final String REFERER = "Referer";
+    public static final String SET_COOKIE = "Set-Cookie";
 
-    public static  boolean nameExists(FlaggedName[] allNames, String inputName) {
+    private static final Log log = LogFactory.getLog(Utils.class);
+
+    public static boolean nameExists(FlaggedName[] allNames, String inputName) {
+
         boolean exists = false;
 
         for (FlaggedName flaggedName : allNames) {
@@ -77,13 +90,15 @@ public class Utils {
     }
 
     public static String getResidentCarbonHome() {
-        if(StringUtils.isEmpty(RESIDENT_CARBON_HOME)){
-            RESIDENT_CARBON_HOME = System.getProperty("carbon.home");;
+
+        if (StringUtils.isEmpty(RESIDENT_CARBON_HOME)) {
+            RESIDENT_CARBON_HOME = System.getProperty("carbon.home");
         }
         return RESIDENT_CARBON_HOME;
     }
 
     public static Tomcat getTomcat(Class testClass) {
+
         Tomcat tomcat = new Tomcat();
         tomcat.getService().setContainer(tomcat.getEngine());
         tomcat.setPort(CommonConstants.DEFAULT_TOMCAT_PORT);
@@ -102,21 +117,16 @@ public class Utils {
     }
 
     public static void setSystemProperties(Class classIn) {
-        URL resourceUrl = classIn.getResource(File.separator + "keystores" + File.separator + "products" + File
-                .separator + "wso2carbon.jks");
-        System.setProperty("javax.net.ssl.trustStore", resourceUrl.getPath());
+
+        System.setProperty("javax.net.ssl.trustStore", FrameworkPathUtil.getSystemResourceLocation() + File.separator +
+                "keystores" + File.separator + "products" + File.separator + "wso2carbon.jks");
         System.setProperty("javax.net.ssl.trustStorePassword", "wso2carbon");
         System.setProperty("javax.net.ssl.trustStoreType", "JKS");
     }
 
-    public static void startTomcat(Tomcat tomcat, String webAppUrl, String webAppPath)
-            throws LifecycleException {
-        tomcat.addWebapp(tomcat.getHost(), webAppUrl, webAppPath);
-        tomcat.start();
-    }
-
     public static HttpResponse sendPOSTMessage(String sessionKey, String url, String userAgent, String
             acsUrl, String artifact, String userName, String password, HttpClient httpClient) throws Exception {
+
         HttpPost post = new HttpPost(url);
         post.setHeader("User-Agent", userAgent);
         post.addHeader("Referer", String.format(acsUrl, artifact));
@@ -132,7 +142,7 @@ public class Utils {
     }
 
     public static HttpResponse sendPOSTClaimMessage(HttpResponse response, String commonAuthUrl, String userAgent, String
-            acsUrl, String artifact,  HttpClient httpClient) throws Exception {
+            acsUrl, String artifact, HttpClient httpClient) throws Exception {
 
         Map<String, String> queryParams = getQueryParams(getRedirectUrl(response));
         String sessionKey = queryParams.get("sessionDataKey");
@@ -141,8 +151,8 @@ public class Utils {
         HttpPost post = new HttpPost(commonAuthUrl);
         List<NameValuePair> urlParameters = new ArrayList<NameValuePair>();
 
-        for (int i=0; i<claims.length; i++) {
-            urlParameters.add(new BasicNameValuePair("claim_mand_"+claims[i], "providedClaimValue"));
+        for (int i = 0; i < claims.length; i++) {
+            urlParameters.add(new BasicNameValuePair("claim_mand_" + claims[i], "providedClaimValue"));
         }
         urlParameters.add(new BasicNameValuePair("sessionDataKey", sessionKey));
         post.setEntity(new UrlEncodedFormEntity(urlParameters));
@@ -162,7 +172,7 @@ public class Utils {
      * @throws Exception Exception
      */
     public static HttpResponse sendPostJITHandlerResponse(HttpResponse response, String commonAuthUrl, String userAgent,
-            String referer, HttpClient httpClient, String pastreCookie) throws Exception {
+                                                          String referer, HttpClient httpClient, String pastreCookie) throws Exception {
 
         String redirectUrl = getRedirectUrl(response);
         Map<String, String> queryParams = getQueryParams(redirectUrl);
@@ -181,12 +191,72 @@ public class Utils {
         return httpClient.execute(post);
     }
 
-    public static HttpResponse sendPOSTConsentMessage(HttpResponse response, String commonAuthUrl, String userAgent,
-                                                    String referer,  HttpClient httpClient, String
-                                                              pastreCookie) throws Exception {
+    /**
+     * To send the response to missing challenge question post authentication handler.
+     *
+     * @param response      Relevant response.
+     * @param commonAuthUrl Common Auth URL.
+     * @param userAgent     User Agent.
+     * @param referer       Referer
+     * @param httpClient    Http Client.
+     * @param pastreCookie  Pastre Cookie.
+     * @return response Relevant response received.
+     * @throws Exception Exception
+     */
+    public static HttpResponse sendPOSTChallengeQuestionResponse(HttpResponse response, String commonAuthUrl, String
+            userAgent, String referer, HttpClient httpClient, String pastreCookie) throws Exception {
+
+        String questionSetId;
+        String questionBody;
+        String tempQuestionSetIdKey;
+        String tempQuestionSetIdValue;
+        String tempAnswerSetIdKey;
+        String tempAnswerValue;
+        List<NameValuePair> urlParameters = new ArrayList<>();
+
         String redirectUrl = getRedirectUrl(response);
         Map<String, String> queryParams = getQueryParams(redirectUrl);
+        String sessionKey = queryParams.get("sessionDataKey");
+        String urlData = queryParams.get("data");
 
+        String[] questionSets = null;
+        if (urlData != null) {
+            questionSets = urlData.split("&");
+        }
+
+        if (questionSets != null) {
+            for (String question : questionSets) {
+                String[] questionProperties = question.split("\\|");
+                questionSetId = questionProperties[0];
+                questionBody = questionProperties[2];
+
+                tempQuestionSetIdKey = "Q-" + questionSetId;
+                tempQuestionSetIdValue = questionBody;
+
+                tempAnswerSetIdKey = "A-" + questionSetId;
+                tempAnswerValue = "SampleAnswer";
+
+                urlParameters.add(new BasicNameValuePair(tempQuestionSetIdKey, tempQuestionSetIdValue));
+                urlParameters.add(new BasicNameValuePair(tempAnswerSetIdKey, tempAnswerValue));
+            }
+        }
+
+        HttpPost post = new HttpPost(commonAuthUrl);
+        post.setHeader(USER_AGENT, userAgent);
+        post.addHeader(REFERER, referer);
+        post.addHeader(SET_COOKIE, pastreCookie);
+        urlParameters.add(new BasicNameValuePair("sessionDataKey", sessionKey));
+
+        post.setEntity(new UrlEncodedFormEntity(urlParameters));
+        return httpClient.execute(post);
+    }
+
+    public static HttpResponse sendPOSTConsentMessage(HttpResponse response, String commonAuthUrl, String userAgent,
+                                                      String referer, HttpClient httpClient, String
+                                                              pastreCookie) throws Exception {
+
+        String redirectUrl = getRedirectUrl(response);
+        Map<String, String> queryParams = getQueryParams(redirectUrl);
 
         String sessionKey = queryParams.get("sessionDataKey");
         String mandatoryClaims = queryParams.get("mandatoryClaims");
@@ -232,10 +302,10 @@ public class Utils {
         return httpClient.execute(post);
     }
 
-    public static boolean requestMissingClaims (HttpResponse response) {
+    public static boolean requestMissingClaims(HttpResponse response) {
 
         String redirectUrl = Utils.getRedirectUrl(response);
-        return redirectUrl.contains("consent.do") ? true : false;
+        return redirectUrl.contains("consent.do");
 
     }
 
@@ -259,6 +329,7 @@ public class Utils {
 
     public static HttpResponse sendRedirectRequest(HttpResponse response, String userAgent, String acsUrl, String
             artifact, HttpClient httpClient) throws IOException {
+
         Header[] headers = response.getAllHeaders();
         String url = "";
         for (Header header : headers) {
@@ -274,6 +345,7 @@ public class Utils {
     }
 
     public static String getRedirectUrl(HttpResponse response) {
+
         Header[] headers = response.getAllHeaders();
         String url = "";
         for (Header header : headers) {
@@ -290,25 +362,43 @@ public class Utils {
 
         List<NameValuePair> params = URLEncodedUtils.parse(new URI(Url), "UTF-8");
         for (NameValuePair param : params) {
-            queryParams.put(param.getName(),param.getValue());
+            queryParams.put(param.getName(), param.getValue());
         }
         return queryParams;
     }
 
     public static HttpResponse sendGetRequest(String url, String userAgent, HttpClient httpClient) throws Exception {
+
         HttpGet request = new HttpGet(url);
         request.addHeader("User-Agent", userAgent);
         return httpClient.execute(request);
     }
 
+    public static HttpResponse sendECPPostRequest(String url, String userAgent, HttpClient httpClient,
+                                                  String username, String password, String soapRequest) throws Exception {
+
+        HttpPost request = new HttpPost(url);
+        HttpResponse response;
+        String auth = username + ":" + password;
+        byte[] encodedAuth = Base64.encodeBase64(
+                auth.getBytes(StandardCharsets.UTF_8));
+        String authHeader = "Basic " + new String(encodedAuth);
+        request.setHeader(HttpHeaders.AUTHORIZATION, authHeader);
+        request.setHeader(HttpHeaders.CONTENT_TYPE, "text/xml; charset=utf-8");
+        request.setEntity(new StringEntity(soapRequest));
+        response = httpClient.execute(request);
+        return response;
+    }
+
     public static HttpResponse sendSAMLMessage(String url, Map<String, String> parameters, String userAgent, TestUserMode userMode, String tenantDomainParam, String tenantDomain, HttpClient httpClient) throws IOException {
+
         List<NameValuePair> urlParameters = new ArrayList<NameValuePair>();
         HttpPost post = new HttpPost(url);
         post.setHeader("User-Agent", userAgent);
-        for (Map.Entry<String,String> entry : parameters.entrySet()) {
+        for (Map.Entry<String, String> entry : parameters.entrySet()) {
             urlParameters.add(new BasicNameValuePair(entry.getKey(), entry.getValue()));
         }
-        if (userMode == TestUserMode.TENANT_ADMIN || userMode == TestUserMode.TENANT_USER){
+        if (userMode == TestUserMode.TENANT_ADMIN || userMode == TestUserMode.TENANT_USER) {
             urlParameters.add(new BasicNameValuePair(tenantDomainParam, tenantDomain));
         }
         post.setEntity(new UrlEncodedFormEntity(urlParameters));
@@ -317,6 +407,7 @@ public class Utils {
 
     public static String extractDataFromResponse(HttpResponse response, String key, int token)
             throws IOException {
+
         BufferedReader rd = new BufferedReader(
                 new InputStreamReader(response.getEntity().getContent()));
         String line;
@@ -369,5 +460,30 @@ public class Utils {
             }
         }
         return urlParameters;
+    }
+
+    /**
+     * Read audit log lines with a given content.
+     *
+     * @param content Content to be searched in audit log.
+     * @return List of lines which contains the given string.
+     * @throws IOException IOException.
+     */
+    public static List<String> readAuditLogLineWithContent(String content) throws IOException {
+
+        String fileName = CarbonUtils.getCarbonHome()
+                + ISIntegrationTest.URL_SEPARATOR +
+                "repository" + ISIntegrationTest.URL_SEPARATOR + "logs" + ISIntegrationTest.URL_SEPARATOR +
+                "audit.log";
+        List<String> results = new ArrayList<>();
+        try (BufferedReader bufferedReader = new BufferedReader(new FileReader(fileName))) {
+            String currentLine;
+            while ((currentLine = bufferedReader.readLine()) != null) {
+                if (currentLine.contains(content)) {
+                    results.add(currentLine);
+                }
+            }
+        }
+        return results;
     }
 }

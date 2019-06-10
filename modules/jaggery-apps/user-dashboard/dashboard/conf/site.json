@@ -1,0 +1,11 @@
+{
+    "service": {
+        "serviceOrigin" : "${carbon.protocol}://${carbon.host}:${carbon.management.port}"
+    },
+    "proxy" : {
+        "proxyHost" : "",
+        "proxyHTTPSPort" : "",
+        "proxyContextPath" : "",
+        "servicePath" : "/services"
+    }
+}

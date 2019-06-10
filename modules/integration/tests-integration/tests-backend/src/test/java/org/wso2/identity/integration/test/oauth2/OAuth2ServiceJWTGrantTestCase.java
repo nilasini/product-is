@@ -28,12 +28,15 @@ import com.nimbusds.oauth2.sdk.Scope;
 import com.nimbusds.oauth2.sdk.TokenErrorResponse;
 import com.nimbusds.oauth2.sdk.TokenRequest;
 import com.nimbusds.oauth2.sdk.TokenResponse;
+import com.nimbusds.oauth2.sdk.TokenRevocationRequest;
 import com.nimbusds.oauth2.sdk.auth.ClientAuthentication;
 import com.nimbusds.oauth2.sdk.auth.ClientSecretBasic;
 import com.nimbusds.oauth2.sdk.auth.Secret;
 import com.nimbusds.oauth2.sdk.http.HTTPResponse;
 import com.nimbusds.oauth2.sdk.id.ClientID;
+import com.nimbusds.oauth2.sdk.token.AccessToken;
 import com.nimbusds.oauth2.sdk.token.RefreshToken;
+import com.nimbusds.oauth2.sdk.token.Token;
 import com.nimbusds.openid.connect.sdk.OIDCTokenResponse;
 import com.nimbusds.openid.connect.sdk.OIDCTokenResponseParser;
 import com.nimbusds.openid.connect.sdk.token.OIDCTokens;
@@ -58,14 +61,12 @@ import org.wso2.carbon.identity.user.profile.stub.types.UserFieldDTO;
 import org.wso2.carbon.identity.user.profile.stub.types.UserProfileDTO;
 import org.wso2.carbon.integration.common.admin.client.UserManagementClient;
 import org.wso2.carbon.integration.common.utils.mgt.ServerConfigurationManager;
-import org.wso2.carbon.registry.properties.stub.beans.xsd.PropertiesBean;
-import org.wso2.carbon.registry.properties.stub.utils.xsd.Property;
 import org.wso2.carbon.user.mgt.stub.UserAdminUserAdminException;
-import org.wso2.carbon.utils.CarbonUtils;
 import org.wso2.identity.integration.common.clients.Idp.IdentityProviderMgtServiceClient;
-import org.wso2.identity.integration.common.clients.registry.PropertiesAdminServiceClient;
 import org.wso2.identity.integration.common.clients.UserProfileMgtServiceClient;
 import org.wso2.identity.integration.common.clients.claim.metadata.mgt.ClaimMetadataManagementServiceClient;
+import org.wso2.identity.integration.common.clients.oauth.OauthAdminClient;
+import org.wso2.identity.integration.test.util.Utils;
 import org.wso2.identity.integration.test.utils.OAuth2Constant;
 
 import java.io.File;
@@ -77,12 +78,14 @@ import java.rmi.RemoteException;
 /**
  * This is a test class for self contained access tokens with JWT bearer grant type.
  */
-public class OAuth2ServiceJWTGrantTestCase extends OAuth2ServiceAbstractIntegrationTest  {
+public class OAuth2ServiceJWTGrantTestCase extends OAuth2ServiceAbstractIntegrationTest {
 
     protected Log log = LogFactory.getLog(getClass());
     private ServerConfigurationManager serverConfigurationManager;
     private UserManagementClient userManagementClient;
     private UserProfileMgtServiceClient userProfileMgtServiceClient;
+    private OauthAdminClient oauthAdminClient;
+    private ClaimMetadataManagementServiceClient claimMetadataManagementServiceClient;
     private final String JWT_USER = "jwtUser";
     private String jwtAssertion;
     private String alias;
@@ -96,12 +99,11 @@ public class OAuth2ServiceJWTGrantTestCase extends OAuth2ServiceAbstractIntegrat
     private final String EMAIL_CLAIM_VALUE = "email@email.com";
     private final String EMAIL_LOCAL_CLAIM_URI = "http://wso2.org/claims/emailaddress";
     private String refreshToken;
+    String openIdScope = "openid";
 
     @BeforeClass
     public void setup() throws Exception {
 
-        String oidcRegistryResourcePath = "/_system/config/oidc";
-        String openIdScope = "openid";
         super.init(TestUserMode.SUPER_TENANT_ADMIN);
         changeISConfiguration("jwt-token-issuer-enabled-identity.xml");
         super.init(TestUserMode.SUPER_TENANT_ADMIN);
@@ -109,26 +111,31 @@ public class OAuth2ServiceJWTGrantTestCase extends OAuth2ServiceAbstractIntegrat
         consumerKey = appDto.getOauthConsumerKey();
         consumerSecret = appDto.getOauthConsumerSecret();
         userManagementClient = new UserManagementClient(backendURL, sessionCookie);
+        oauthAdminClient = new OauthAdminClient(backendURL, sessionCookie);
         userProfileMgtServiceClient = new UserProfileMgtServiceClient(backendURL, sessionCookie);
         identityProviderMgtServiceClient = new IdentityProviderMgtServiceClient(sessionCookie, backendURL);
         addNewUserWithClaims();
+        claimMetadataManagementServiceClient = new ClaimMetadataManagementServiceClient(backendURL, sessionCookie);
 
-        // Update OIDC scope properties in registry
-        PropertiesAdminServiceClient propertiesAdminServiceClient = new PropertiesAdminServiceClient(backendURL,
-                sessionCookie);
-        PropertiesBean propertiesBean = propertiesAdminServiceClient
-                .getProperties(oidcRegistryResourcePath, openIdScope);
-        String openidValue = COUNTRY_NEW_OIDC_CLAIM + ",";
-        if (propertiesBean.getProperties() != null) {
-            for (Property prop : propertiesBean.getProperties()) {
-                if (prop.getKey().equals(openIdScope)) {
-                    openidValue += prop.getValue();
-                    break;
-                }
-            }
-        }
-        propertiesAdminServiceClient.removeProperty(oidcRegistryResourcePath, openIdScope);
-        propertiesAdminServiceClient.setProperty(oidcRegistryResourcePath, openIdScope, openidValue);
+        ExternalClaimDTO externalClaimDTO = new ExternalClaimDTO();
+        externalClaimDTO
+                .setExternalClaimDialectURI(OAuth2ServiceAuthCodeGrantOpenIdRequestObjectTestCase.OIDC_CLAIM_DIALECT);
+        externalClaimDTO.setMappedLocalClaimURI(COUNTRY_LOCAL_CLAIM_URI);
+        externalClaimDTO.setExternalClaimURI(COUNTRY_NEW_OIDC_CLAIM);
+        claimMetadataManagementServiceClient.addExternalClaim(externalClaimDTO);
+        String[] openidValue = new String[1];
+        openidValue[0] = COUNTRY_NEW_OIDC_CLAIM;
+        oauthAdminClient.updateScope(openIdScope, openidValue, null);
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void atEnd() throws Exception {
+
+        deleteApplication();
+        removeOAuthApplicationData();
+        identityProviderMgtServiceClient = new IdentityProviderMgtServiceClient(sessionCookie, backendURL);
+        identityProviderMgtServiceClient.deleteIdP(issuer);
+        resetISConfiguration();
     }
 
     @Test(description = "This test case tests the JWT self contained access token generation using password grant "
@@ -198,7 +205,7 @@ public class OAuth2ServiceJWTGrantTestCase extends OAuth2ServiceAbstractIntegrat
             + "false", dependsOnMethods = "testJWTGrantTypeWithConvertOIDCDialectFalse")
     public void testJWTGrantTypeWithConvertOIDCDialectWithoutIDPMappingWithSPMapping() throws Exception {
 
-        serverConfigurationManager.restoreToLastConfiguration();
+        resetISConfiguration();
         super.init(TestUserMode.SUPER_TENANT_ADMIN);
         changeISConfiguration("jwt-token-issuer-convertToOIDC.xml");
         super.init(TestUserMode.SUPER_TENANT_ADMIN);
@@ -279,7 +286,7 @@ public class OAuth2ServiceJWTGrantTestCase extends OAuth2ServiceAbstractIntegrat
                         + "returned when ConvertToOIDCDialect is set to true in identity.xml");
         Assert.assertNull(oidcTokens.getIDToken().getJWTClaimsSet().getClaim(COUNTRY_LOCAL_CLAIM_URI),
                 "User claims conversion happened wrongly.");
-        Assert.assertNull(oidcTokens.getIDToken().getJWTClaimsSet().getClaim(COUNTRY_NEW_OIDC_CLAIM),
+        Assert.assertNotNull(oidcTokens.getIDToken().getJWTClaimsSet().getClaim(COUNTRY_NEW_OIDC_CLAIM),
                 "User claims conversion happened wrongly.");
     }
 
@@ -293,7 +300,7 @@ public class OAuth2ServiceJWTGrantTestCase extends OAuth2ServiceAbstractIntegrat
         ServiceProvider serviceProvider = appMgtclient.getApplication(SERVICE_PROVIDER_NAME);
         serviceProvider = setServiceProviderClaimConfig(serviceProvider);
         appMgtclient.updateApplicationData(serviceProvider);
-        serverConfigurationManager.restoreToLastConfiguration();
+        resetISConfiguration();
         super.init(TestUserMode.SUPER_TENANT_ADMIN);
         changeISConfiguration("jwt-token-issuer-addremaininguserattribute.xml");
         super.init(TestUserMode.SUPER_TENANT_ADMIN);
@@ -327,6 +334,38 @@ public class OAuth2ServiceJWTGrantTestCase extends OAuth2ServiceAbstractIntegrat
                 "User claims conversion happened wrongly.");
         Assert.assertNull(oidcTokens.getIDToken().getJWTClaimsSet().getClaim(COUNTRY_OIDC_CLAIM),
                 "Duplicated claims while adding missing attributes.");
+    }
+
+    @Test(description = "This test case tests access token revocation flow of JWTBearerGrant.", dependsOnMethods =
+            "testRefreshTokenFlow")
+    public void testAccessTokenRevokeFlow() throws Exception {
+
+        OIDCTokens firstTokenSet = makeJWTBearerGrantRequest();
+        AccessToken firstAccessToken = firstTokenSet.getAccessToken();
+
+        makeTokenRevokeRequest(firstAccessToken);
+
+        OIDCTokens secondTokenSet = makeJWTBearerGrantRequest();
+        AccessToken secondAccessToken = secondTokenSet.getAccessToken();
+
+        Assert.assertFalse(firstAccessToken.toJSONString().equals(secondAccessToken.toJSONString()), "Same access " +
+                "token is returned even after the access token issued from JWT Bearer grant has been revoked. ");
+    }
+
+    @Test(description = "This test case tests refresh token revocation flow of JWTBearerGrant.", dependsOnMethods =
+            "testRefreshTokenFlow")
+    public void testRefreshTokenRevokeFlow() throws Exception {
+
+        OIDCTokens firstTokenSet = makeJWTBearerGrantRequest();
+        RefreshToken firstRefreshToken = firstTokenSet.getRefreshToken();
+
+        makeTokenRevokeRequest(firstRefreshToken);
+
+        OIDCTokens secondTokenSet = makeJWTBearerGrantRequest();
+        RefreshToken refreshToken = secondTokenSet.getRefreshToken();
+
+        Assert.assertFalse(firstRefreshToken.toJSONString().equals(refreshToken.toJSONString()), "Same refresh " +
+                "token is returned even after the refresh token issued from JWT Bearer grant has been revoked ");
     }
 
     /**
@@ -381,6 +420,18 @@ public class OAuth2ServiceJWTGrantTestCase extends OAuth2ServiceAbstractIntegrat
         return oidcTokens;
     }
 
+    private void makeTokenRevokeRequest(Token token) throws URISyntaxException, IOException {
+
+        ClientID clientID = new ClientID(consumerKey);
+        Secret clientSecret = new Secret(consumerSecret);
+        ClientAuthentication clientAuth = new ClientSecretBasic(clientID, clientSecret);
+        URI tokenRevokeEndpoint = new URI(OAuth2Constant.TOKEN_REVOKE_ENDPOINT);
+        TokenRevocationRequest revocationRequest = new TokenRevocationRequest(tokenRevokeEndpoint, clientAuth, token);
+
+        HTTPResponse revocationResp = revocationRequest.toHTTPRequest().send();
+        Assert.assertNotNull(revocationResp, "Token revocation response is null.");
+    }
+
     /**
      * To reset configurations to default configurations after the change needed for
      *
@@ -389,7 +440,7 @@ public class OAuth2ServiceJWTGrantTestCase extends OAuth2ServiceAbstractIntegrat
     private void resetISConfiguration() throws Exception {
 
         log.info("Replacing identity.xml with default configurations");
-        serverConfigurationManager.restoreToLastConfiguration();
+        serverConfigurationManager.restoreToLastConfiguration(false);
     }
 
     /**
@@ -443,7 +494,7 @@ public class OAuth2ServiceJWTGrantTestCase extends OAuth2ServiceAbstractIntegrat
         emailClaimMapping.setLocalClaim(emailClaim);
         emailClaimMapping.setRemoteClaim(emailRemoteClaim);
         claimConfig.addIdpClaims(emailRemoteClaim);
-        claimConfig.setClaimMappings(new ClaimMapping[] { emailClaimMapping });
+        claimConfig.setClaimMappings(new ClaimMapping[]{emailClaimMapping});
         identityProvider.setClaimConfig(claimConfig);
         identityProviderMgtServiceClient.updateIdP(issuer, identityProvider);
     }
@@ -457,7 +508,7 @@ public class OAuth2ServiceJWTGrantTestCase extends OAuth2ServiceAbstractIntegrat
     private void changeISConfiguration(String fileName) throws Exception {
 
         log.info("Replacing identity.xml to use the JWT Token Generator instead of default token generator");
-        String carbonHome = CarbonUtils.getCarbonHome();
+        String carbonHome = Utils.getResidentCarbonHome();
         File identityXML = new File(
                 carbonHome + File.separator + "repository" + File.separator + "conf" + File.separator + "identity"
                         + File.separator + "identity.xml");
@@ -465,7 +516,7 @@ public class OAuth2ServiceJWTGrantTestCase extends OAuth2ServiceAbstractIntegrat
                 getISResourceLocation() + File.separator + "oauth" + File.separator + fileName);
         serverConfigurationManager = new ServerConfigurationManager(isServer);
         serverConfigurationManager.applyConfigurationWithoutRestart(configuredIdentityXML, identityXML, true);
-        serverConfigurationManager.restartGracefully();
+        serverConfigurationManager.restartForcefully();
     }
 
     /**
@@ -483,7 +534,7 @@ public class OAuth2ServiceJWTGrantTestCase extends OAuth2ServiceAbstractIntegrat
         String countryLocalClaimUri = "http://wso2.org/claims/country";
         String givenNameLocalClaimUri = "http://wso2.org/claims/givenname";
 
-        userManagementClient.addUser(JWT_USER, JWT_USER, new String[] { adminRoleName }, profileName);
+        userManagementClient.addUser(JWT_USER, JWT_USER, new String[]{adminRoleName}, profileName);
         UserProfileDTO profile = new UserProfileDTO();
         profile.setProfileName(profileName);
         UserFieldDTO country = new UserFieldDTO();
@@ -503,16 +554,6 @@ public class OAuth2ServiceJWTGrantTestCase extends OAuth2ServiceAbstractIntegrat
         userProfileMgtServiceClient.setUserProfile(JWT_USER, profile);
     }
 
-    @AfterClass(alwaysRun = true)
-    public void atEnd() throws Exception {
-
-        deleteApplication();
-        removeOAuthApplicationData();
-        identityProviderMgtServiceClient = new IdentityProviderMgtServiceClient(sessionCookie, backendURL);
-        identityProviderMgtServiceClient.deleteIdP(issuer);
-        resetISConfiguration();
-    }
-
     /**
      * Change the OIDC dialect claim for local claim country.
      *
@@ -528,11 +569,5 @@ public class OAuth2ServiceJWTGrantTestCase extends OAuth2ServiceAbstractIntegrat
         claimMetadataManagementServiceClient
                 .removeExternalClaim(OAuth2ServiceAuthCodeGrantOpenIdRequestObjectTestCase.OIDC_CLAIM_DIALECT,
                         COUNTRY_OIDC_CLAIM);
-        ExternalClaimDTO externalClaimDTO = new ExternalClaimDTO();
-        externalClaimDTO
-                .setExternalClaimDialectURI(OAuth2ServiceAuthCodeGrantOpenIdRequestObjectTestCase.OIDC_CLAIM_DIALECT);
-        externalClaimDTO.setMappedLocalClaimURI(COUNTRY_LOCAL_CLAIM_URI);
-        externalClaimDTO.setExternalClaimURI(COUNTRY_NEW_OIDC_CLAIM);
-        claimMetadataManagementServiceClient.addExternalClaim(externalClaimDTO);
     }
 }

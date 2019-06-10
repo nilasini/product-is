@@ -15,7 +15,7 @@ Welcome to WSO2 Identity Server
 
 
 
-[![Join the chat at https://gitter.im/wso2/product-identity-server](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/wso2/product-identity-server?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+[![Join the chat at https://join.slack.com/t/wso2is/shared_invite/enQtNTM2MjU4MzM5NzYxLTEyNGRmMTBhMWM2ZWI2YjUxMTgyZDcwY2QzMDZmMjk5ZWVhZmRlM2UwYjY4NGRmZGZiNWQwNmQ0MDFiNzNlYzE](https://img.shields.io/badge/Join%20us%20on-Slack-%23e01563.svg)](https://join.slack.com/t/wso2is/shared_invite/enQtNTM2MjU4MzM5NzYxLTEyNGRmMTBhMWM2ZWI2YjUxMTgyZDcwY2QzMDZmMjk5ZWVhZmRlM2UwYjY4NGRmZGZiNWQwNmQ0MDFiNzNlYzE)
 
 ---
 
@@ -41,8 +41,8 @@ System Requirements
 5. To build WSO2 Identity Server from the Source distribution, it is also necessary that you have Maven 3 or later.
 
 For more details see
-   http://docs.wso2.com/display/IS541/Installation+Prerequisites (For latest released version)
-   http://docs.wso2.com/display/IS560/Installation+Prerequisites (For current development version)
+   http://docs.wso2.com/display/IS570/Installation+Prerequisites (For latest released version)
+   http://docs.wso2.com/display/IS580/Installation+Prerequisites (For current development version)
 
 
 Project Resources
@@ -51,8 +51,8 @@ Project Resources
 * Home page          : http://wso2.com/products/identity-server
 * Library            : http://wso2.org/library/identity
 * Wiki 
-    * Latest released version     : http://docs.wso2.org/wiki/display/IS541/WSO2+Identity+Server+Documentation
-    * Current development version : http://docs.wso2.org/wiki/display/IS560/WSO2+Identity+Server+Documentation
+    * Latest released version     : http://docs.wso2.org/wiki/display/IS570/WSO2+Identity+Server+Documentation
+    * Current development version : http://docs.wso2.org/wiki/display/IS580/WSO2+Identity+Server+Documentation
 * Issue Tracker      : https://github.com/wso2/product-is/issues      
 * Forums             : http://stackoverflow.com/questions/tagged/wso2is/
 * WSO2 Developer List: dev@wso2.org
@@ -120,7 +120,7 @@ WSO2 Identity Server Distribution Directory Structure
       In addition to this other custom deployers such as
       dataservices and axis1services are also stored.
 
-    	- components
+        - components
           Contains all OSGi related libraries and configurations.
 
         - conf
@@ -220,4 +220,4 @@ For further details, see the WSO2 Carbon documentation at
 https://docs.wso2.com/display/Carbon4411/WSO2+Carbon+Documentation
 
 ---------------------------------------------------------------------------
-(c) Copyright 2018 WSO2 Inc.
+(c) Copyright 2019 WSO2 Inc.

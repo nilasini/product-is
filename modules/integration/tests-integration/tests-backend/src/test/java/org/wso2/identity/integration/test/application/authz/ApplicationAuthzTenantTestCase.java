@@ -35,6 +35,7 @@ import org.wso2.identity.integration.common.clients.application.mgt.ApplicationM
 import org.wso2.identity.integration.common.clients.entitlement.EntitlementPolicyServiceClient;
 import org.wso2.identity.integration.common.clients.sso.saml.SAMLSSOConfigServiceClient;
 import org.wso2.identity.integration.common.clients.usermgt.remote.RemoteUserStoreManagerServiceClient;
+import org.wso2.identity.integration.common.utils.ISIntegrationTest;
 import org.wso2.identity.integration.test.util.Utils;
 import org.wso2.identity.integration.test.utils.CommonConstants;
 
@@ -104,14 +105,6 @@ public class ApplicationAuthzTenantTestCase extends AbstractApplicationAuthzTest
         createApplication(APPLICATION_NAME);
         createSAMLApp(APPLICATION_NAME, true, false, false);
         setupXACMLPolicy(POLICY_ID, POLICY);
-
-        //Starting tomcat
-        log.info("Starting Tomcat");
-        tomcatServer = Utils.getTomcat(getClass());
-
-        URL resourceUrl = getClass()
-                .getResource(File.separator + "samples" + File.separator + "travelocity.com-saml-tenantwithoutsigning.war");
-        Utils.startTomcat(tomcatServer, "/" + APPLICATION_NAME, resourceUrl.getPath());
     }
 
     @AfterClass(alwaysRun = true)
@@ -121,16 +114,14 @@ public class ApplicationAuthzTenantTestCase extends AbstractApplicationAuthzTest
         deleteUser(NON_AZ_TEST_TENANT_USER);
         deleteRole(AZ_TEST_TENANT_ROLE);
         deleteApplication(APPLICATION_NAME);
+        entitlementPolicyClient.publishPolicies(new String[]{POLICY_ID}, new String[]{"PDP " +
+                "Subscriber"}, "DELETE", true, null, 1);
         entitlementPolicyClient.removePolicy(POLICY_ID);
 
         ssoConfigServiceClient = null;
         applicationManagementServiceClient = null;
         remoteUSMServiceClient = null;
         httpClientAzUser = null;
-        //Stopping tomcat
-        tomcatServer.stop();
-        tomcatServer.destroy();
-        Thread.sleep(10000);
     }
 
     @Test(alwaysRun = true, description = "Test authorized tenant user login by evaluating the policy", groups = "wso2.is")
