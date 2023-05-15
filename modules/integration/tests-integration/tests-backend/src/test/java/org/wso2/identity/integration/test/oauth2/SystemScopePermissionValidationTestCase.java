@@ -203,8 +203,7 @@ public class SystemScopePermissionValidationTestCase extends OAuth2ServiceAbstra
         return introspectionResponse.get("scope").toString();
     }
 
-    private void doTheScopeValidationBasedOnTheTestUserMode(String scope, boolean isClientCredentialsGrant)
-            throws Exception {
+    private void doTheScopeValidationBasedOnTheTestUserMode(String scope, boolean isClientCredentialsGrant) {
 
         if (testUserMode == TestUserMode.SUPER_TENANT_ADMIN) {
             Assert.assertTrue(scope.contains("internal_server_admin"), "Scope should contain " +
